@@ -1,0 +1,21 @@
+{
+  "pontos_disponiveis": 32000,
+  "meta_financeira_minima": 900.0,
+  "programas": {
+    "LATAM": {
+      "bonus_minimo_pct": 20,
+      "ativo": true,
+      "valor_milheiro_fallback": 25.0
+    },
+    "SMILES": {
+      "bonus_minimo_pct": 70,
+      "ativo": true,
+      "valor_milheiro_fallback": 16.0
+    },
+    "AZUL": {
+      "bonus_minimo_pct": 80,
+      "ativo": true,
+      "valor_milheiro_fallback": 13.0
+    }
+  }
+}
