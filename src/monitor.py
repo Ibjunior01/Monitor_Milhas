@@ -88,10 +88,6 @@ def executar_varredura() -> dict:
         programa_nome = item.get("programa", "")
         bonus_pct = item.get("bonus_pct")
 
-        # Marca como visto independentemente do resultado
-        if link:
-            salvar_visto(link)
-
         # Sem bônus identificado → salva como aguardando para revisão manual
         if bonus_pct is None:
             log.info(
@@ -102,6 +98,8 @@ def executar_varredura() -> dict:
         programa_cfg = config.programas.get(programa_nome)
         if not programa_cfg:
             log.warning(f"Programa '{programa_nome}' não configurado. Ignorando.")
+            if link:
+                salvar_visto(link)
             continue
 
         milhas = calcular_milhas_finais(config.pontos_disponiveis, bonus_pct)
@@ -120,7 +118,11 @@ def executar_varredura() -> dict:
 
         salvar_oportunidade(op)
 
+        if link:
+            salvar_visto(link)
+
         log.info(
+
             f"[{status.value.upper()}] {programa_nome} | "
             f"bônus {bonus_pct:.0f}% | "
             f"R$ {valor:,.2f} | {recomendacao[:60]}"
