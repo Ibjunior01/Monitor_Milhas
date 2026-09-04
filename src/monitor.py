@@ -1,6 +1,7 @@
 """
 Orquestrador principal: coleta → parse → cálculo → decisão → storage → alerta.
 """
+
 from datetime import datetime
 from src.logger import get_logger
 from src.config import carregar_config
@@ -11,12 +12,15 @@ from src.calculations import (
     calcular_valor_estimado,
     avaliar_oportunidade,
 )
+
 from src.storage import (
     carregar_vistos,
     salvar_visto,
     salvar_oportunidade,
     criar_oportunidade,
+    salvar_ultima_varredura,
 )
+
 from src.telegram_alerts import enviar_alerta
 from src.models import StatusOportunidade
 from datetime import timedelta
@@ -61,7 +65,9 @@ def executar_varredura() -> dict:
     recentes = [item for item in novos if _e_recente(item)]
     descartados_data = len(novos) - len(recentes)
     if descartados_data:
-        log.info(f"Descartados por antiguidade (>{DIAS_MAX_ANTIGUIDADE} dias): {descartados_data}")
+        log.info(
+            f"Descartados por antiguidade (>{DIAS_MAX_ANTIGUIDADE} dias): {descartados_data}"
+        )
 
     # 4. Parse
     parseados = [parsear_item(item) for item in recentes]
@@ -88,7 +94,9 @@ def executar_varredura() -> dict:
 
         # Sem bônus identificado → salva como aguardando para revisão manual
         if bonus_pct is None:
-            log.info(f"Sem bônus identificado para {programa_nome}: {item.get('titulo','')[:60]}")
+            log.info(
+                f"Sem bônus identificado para {programa_nome}: {item.get('titulo', '')[:60]}"
+            )
             bonus_pct = 0.0
 
         programa_cfg = config.programas.get(programa_nome)
@@ -125,6 +133,8 @@ def executar_varredura() -> dict:
                 resumo["alertas_enviados"] += 1
         else:
             resumo["ignoradas"] += 1
+
+    salvar_ultima_varredura(resumo)
 
     log.info(
         f"Varredura concluída | "

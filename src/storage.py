@@ -3,6 +3,7 @@ Camada de persistência usando arquivos locais (JSON/JSONL).
 Interface projetada para substituição futura por banco de dados
 sem alterar o restante do código.
 """
+
 import json
 import uuid
 from datetime import datetime
@@ -17,6 +18,7 @@ log = get_logger("storage")
 DATA_DIR = Path(__file__).parent.parent / "data"
 OPORTUNIDADES_PATH = DATA_DIR / "oportunidades.jsonl"
 VISTOS_PATH = DATA_DIR / "vistos.json"
+ULTIMA_VARREDURA_PATH = DATA_DIR / "ultima_varredura.json"
 
 
 def _serializar(obj) -> str:
@@ -128,10 +130,42 @@ def criar_oportunidade(
     )
 
 
-def data_ultima_varredura() -> Optional[str]:
-    """Retorna a data da coleta mais recente, ou None."""
-    ops = carregar_oportunidades()
-    if not ops:
+def salvar_ultima_varredura(resumo: dict) -> None:
+    """Persiste o estado da última varredura concluída."""
+    ULTIMA_VARREDURA_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    estado = {
+        "data_execucao": datetime.now().isoformat(timespec="seconds"),
+        "status": "concluida",
+        "resumo": resumo,
+    }
+
+    temp_path = ULTIMA_VARREDURA_PATH.with_suffix(".tmp")
+
+    with open(temp_path, "w", encoding="utf-8") as f:
+        json.dump(estado, f, ensure_ascii=False, indent=2)
+
+    temp_path.replace(ULTIMA_VARREDURA_PATH)
+
+
+def carregar_ultima_varredura() -> Optional[dict]:
+    """Carrega o estado da última varredura concluída."""
+    if not ULTIMA_VARREDURA_PATH.exists():
         return None
-    datas = [o.get("data_coleta", "") for o in ops if o.get("data_coleta")]
-    return max(datas) if datas else None
+
+    try:
+        with open(ULTIMA_VARREDURA_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        log.warning("Arquivo ultima_varredura.json inválido ou inacessível.")
+        return None
+
+
+def data_ultima_varredura() -> Optional[str]:
+    """Retorna a data da última varredura concluída, ou None."""
+    estado = carregar_ultima_varredura()
+
+    if not estado:
+        return None
+
+    return estado.get("data_execucao")
