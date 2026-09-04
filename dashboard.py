@@ -49,7 +49,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Paths ───────────────────────────────────────────────────────────────────
-DATA_DIR = Path("data")
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+
 CONFIG_PATH = DATA_DIR / "config.json"
 COTACAO_PATH = DATA_DIR / "cotacao_milhas.json"
 OPORTUNIDADES_PATH = DATA_DIR / "oportunidades.jsonl"
