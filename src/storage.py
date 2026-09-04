@@ -30,6 +30,24 @@ def _serializar(obj) -> str:
     raise TypeError(f"Tipo não serializável: {type(obj)}")
 
 
+def _salvar_json_atomico(path: Path, dados) -> None:
+    """Grava JSON em arquivo temporário e substitui o destino atomicamente."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    temp_path = path.with_suffix(path.suffix + ".tmp")
+
+    try:
+        with open(temp_path, "w", encoding="utf-8") as f:
+            json.dump(dados, f, ensure_ascii=False, indent=2)
+            f.flush()
+
+        temp_path.replace(path)
+    except OSError:
+        if temp_path.exists():
+            temp_path.unlink(missing_ok=True)
+        raise
+
+
 def carregar_vistos() -> set[str]:
     """Retorna conjunto de links já processados."""
     if not VISTOS_PATH.exists():
@@ -46,9 +64,11 @@ def salvar_visto(link: str) -> None:
     """Adiciona link ao registro de processados."""
     vistos = carregar_vistos()
     vistos.add(link)
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    with open(VISTOS_PATH, "w", encoding="utf-8") as f:
-        json.dump(list(vistos), f, ensure_ascii=False)
+
+    _salvar_json_atomico(
+        VISTOS_PATH,
+        sorted(vistos),
+    )
 
 
 def salvar_oportunidade(op: Oportunidade) -> None:
@@ -132,20 +152,16 @@ def criar_oportunidade(
 
 def salvar_ultima_varredura(resumo: dict) -> None:
     """Persiste o estado da última varredura concluída."""
-    ULTIMA_VARREDURA_PATH.parent.mkdir(parents=True, exist_ok=True)
-
     estado = {
         "data_execucao": datetime.now().isoformat(timespec="seconds"),
         "status": "concluida",
         "resumo": resumo,
     }
 
-    temp_path = ULTIMA_VARREDURA_PATH.with_suffix(".tmp")
-
-    with open(temp_path, "w", encoding="utf-8") as f:
-        json.dump(estado, f, ensure_ascii=False, indent=2)
-
-    temp_path.replace(ULTIMA_VARREDURA_PATH)
+    _salvar_json_atomico(
+        ULTIMA_VARREDURA_PATH,
+        estado,
+    )
 
 
 def carregar_ultima_varredura() -> Optional[dict]:

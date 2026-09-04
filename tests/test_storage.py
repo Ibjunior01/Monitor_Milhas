@@ -42,3 +42,44 @@ def test_ultima_varredura_independe_de_oportunidades(tmp_path, monkeypatch):
     assert estado["status"] == "concluida"
     assert estado["resumo"] == resumo
     assert storage.data_ultima_varredura() == estado["data_execucao"]
+
+
+def test_salvar_visto_persiste_links_sem_perder_existentes(
+    tmp_path,
+    monkeypatch,
+):
+    vistos_path = tmp_path / "vistos.json"
+
+    monkeypatch.setattr(
+        storage,
+        "VISTOS_PATH",
+        vistos_path,
+    )
+
+    storage.salvar_visto("https://example.com/1")
+    storage.salvar_visto("https://example.com/2")
+    storage.salvar_visto("https://example.com/1")
+
+    assert storage.carregar_vistos() == {
+        "https://example.com/1",
+        "https://example.com/2",
+    }
+
+
+def test_carregar_vistos_com_json_invalido_retorna_vazio(
+    tmp_path,
+    monkeypatch,
+):
+    vistos_path = tmp_path / "vistos.json"
+    vistos_path.write_text(
+        "{arquivo quebrado",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        storage,
+        "VISTOS_PATH",
+        vistos_path,
+    )
+
+    assert storage.carregar_vistos() == set()
