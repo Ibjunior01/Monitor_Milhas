@@ -320,3 +320,62 @@ def test_falha_telegram_mantem_alertado_false(monkeypatch):
     assert alertados == []
     assert resumo["aprovadas"] == 1
     assert resumo["alertas_enviados"] == 0
+
+
+def test_item_irrelevante_e_marcado_como_visto(monkeypatch):
+    """Item analisado e descartado deve ser marcado como processado."""
+    item = {
+        "link": "https://example.com/noticia-irrelevante",
+        "titulo": "Notícia sem relação com Esfera",
+        "resumo": "",
+        "data_publicacao": None,
+    }
+
+    vistos_salvos = []
+
+    monkeypatch.setattr(
+        monitor,
+        "carregar_config",
+        lambda: object(),
+    )
+    monkeypatch.setattr(
+        monitor,
+        "carregar_vistos",
+        lambda: set(),
+    )
+    monkeypatch.setattr(
+        monitor,
+        "coletar_todas_fontes",
+        lambda: [item],
+    )
+    monkeypatch.setattr(
+        monitor,
+        "parsear_item",
+        lambda bruto: {
+            **bruto,
+            "programa": None,
+            "bonus_pct": None,
+        },
+    )
+    monkeypatch.setattr(
+        monitor,
+        "filtrar_relevantes",
+        lambda itens: [],
+    )
+    monkeypatch.setattr(
+        monitor,
+        "salvar_visto",
+        lambda link: vistos_salvos.append(link),
+    )
+    monkeypatch.setattr(
+        monitor,
+        "salvar_ultima_varredura",
+        lambda resumo: None,
+    )
+
+    resumo = monitor.executar_varredura()
+
+    assert resumo["novos"] == 1
+    assert resumo["relevantes"] == 0
+
+    assert vistos_salvos == ["https://example.com/noticia-irrelevante"]

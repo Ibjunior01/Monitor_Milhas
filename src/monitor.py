@@ -71,6 +71,16 @@ def executar_varredura() -> dict:
     # 4. Parse
     parseados = [parsear_item(item) for item in recentes]
     relevantes = filtrar_relevantes(parseados)
+    links_relevantes = {item.get("link") for item in relevantes if item.get("link")}
+
+    links_irrelevantes = {
+        item.get("link")
+        for item in parseados
+        if item.get("link") and item.get("link") not in links_relevantes
+    }
+
+    for link in links_irrelevantes:
+        salvar_visto(link)
 
     resumo = {
         "total_coletados": len(brutos),
@@ -100,15 +110,13 @@ def executar_varredura() -> dict:
             if link:
                 salvar_visto(link)
             continue
-        
+
         if not programa_cfg.ativo:
-            log.info(
-                f"Programa '{programa_nome}' está desativado. Ignorando item."
-            )
+            log.info(f"Programa '{programa_nome}' está desativado. Ignorando item.")
             if link:
                 salvar_visto(link)
-            continue                                                            
-        
+            continue
+
         milhas = calcular_milhas_finais(config.pontos_disponiveis, bonus_pct)
         valor = calcular_valor_estimado(milhas, programa_cfg.valor_milheiro)
         status, recomendacao = avaliar_oportunidade(bonus_pct, programa_cfg, config)
@@ -129,7 +137,6 @@ def executar_varredura() -> dict:
             salvar_visto(link)
 
         log.info(
-
             f"[{status.value.upper()}] {programa_nome} | "
             f"bônus {bonus_pct:.0f}% | "
             f"R$ {valor:,.2f} | {recomendacao[:60]}"
