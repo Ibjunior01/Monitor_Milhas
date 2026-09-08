@@ -6,7 +6,7 @@ sem alterar o restante do código.
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -133,7 +133,7 @@ def criar_oportunidade(
         resumo=item.get("resumo", ""),
         link=item.get("link", ""),
         fonte=item.get("fonte", ""),
-        data_coleta=datetime.now(),
+        data_coleta=datetime.now(timezone.utc),
         data_publicacao=item.get("data_publicacao"),
         programa=item.get("programa", ""),
         bonus_pct=item.get("bonus_pct", 0.0),
@@ -153,7 +153,7 @@ def criar_oportunidade(
 def salvar_ultima_varredura(resumo: dict) -> None:
     """Persiste o estado da última varredura concluída."""
     estado = {
-        "data_execucao": datetime.now().isoformat(timespec="seconds"),
+        "data_execucao": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "status": "concluida",
         "resumo": resumo,
     }

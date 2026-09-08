@@ -1,5 +1,7 @@
 """Testes da camada de persistência."""
 
+from datetime import datetime, timedelta
+
 from src import storage
 
 
@@ -131,3 +133,33 @@ def test_marcar_oportunidade_alertada_id_inexistente(
     atualizado = storage.marcar_oportunidade_alertada("NAO-EXISTE")
 
     assert atualizado is False
+
+
+def test_ultima_varredura_grava_timestamp_utc(
+    tmp_path,
+    monkeypatch,
+):
+    estado_path = tmp_path / "ultima_varredura.json"
+
+    monkeypatch.setattr(
+        storage,
+        "ULTIMA_VARREDURA_PATH",
+        estado_path,
+    )
+
+    storage.salvar_ultima_varredura(
+        {
+            "total_coletados": 0,
+            "novos": 0,
+            "relevantes": 0,
+            "aprovadas": 0,
+            "alertas_enviados": 0,
+            "ignoradas": 0,
+        }
+    )
+
+    estado = storage.carregar_ultima_varredura()
+    data_execucao = datetime.fromisoformat(estado["data_execucao"])
+
+    assert data_execucao.tzinfo is not None
+    assert data_execucao.utcoffset() == timedelta(0)

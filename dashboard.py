@@ -3,7 +3,7 @@ Dashboard Monitor de Milhas — Streamlit
 Uso: streamlit run dashboard.py
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import streamlit as st
@@ -17,6 +17,26 @@ from src.storage import (
     carregar_oportunidades,
     data_ultima_varredura,
 )
+
+HORARIO_BRASIL = timezone(timedelta(hours=-3))
+
+
+def _formatar_data_hora(valor: str | None) -> str:
+    """Formata timestamp ISO para horário UTC-3."""
+    if not valor:
+        return "—"
+
+    try:
+        data = datetime.fromisoformat(valor)
+
+        if data.tzinfo is not None:
+            data = data.astimezone(HORARIO_BRASIL)
+
+        return data.strftime("%d/%m/%Y %H:%M")
+
+    except (TypeError, ValueError):
+        return valor
+
 
 # ── Configuração da página ──────────────────────────────────────────────────
 st.set_page_config(
@@ -201,13 +221,7 @@ ignoradas_total = sum(
     1 for o in oportunidades if o.get("status") in ("ignorada", "abaixo_da_meta")
 )
 
-ultima = data_ultima_varredura() or "—"
-
-if ultima != "—":
-    try:
-        ultima = datetime.fromisoformat(ultima).strftime("%d/%m/%Y %H:%M")
-    except Exception:
-        pass
+ultima = _formatar_data_hora(data_ultima_varredura())
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -388,14 +402,7 @@ else:
                     )
                     st.write(f"**Meta:** R$ {op.get('meta_financeira', 0):,.2f}")
                     st.write(f"**Status:** {op.get('status', '—')}")
-                    data_c = op.get("data_coleta", "—")
-                    if data_c != "—":
-                        try:
-                            data_c = datetime.fromisoformat(data_c).strftime(
-                                "%d/%m/%Y %H:%M"
-                            )
-                        except Exception:
-                            pass
+                    data_c = _formatar_data_hora(op.get("data_coleta"))
                     st.write(f"**Coletado:** {data_c}")
 
                 st.write(f"**Recomendação:** {op.get('recomendacao', '—')}")
