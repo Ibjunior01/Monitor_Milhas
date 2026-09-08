@@ -2,6 +2,7 @@
 Parser de oportunidades: extrai programa, % de bônus e validade a partir
 de texto livre de notícias/títulos.
 """
+
 import re
 from datetime import datetime
 from typing import Optional
@@ -89,9 +90,11 @@ def parsear_item(item: dict) -> dict:
     data_validade = extrair_validade(texto_completo)
 
     if programa:
-        log.debug(f"Identificado: programa={programa}, bonus={bonus_pct}%, link={item.get('link','')[:60]}")
+        log.debug(
+            f"Identificado: programa={programa}, bonus={bonus_pct}%, link={item.get('link', '')[:60]}"
+        )
     else:
-        log.debug(f"Sem programa identificado para: {item.get('titulo','')[:80]}")
+        log.debug(f"Sem programa identificado para: {item.get('titulo', '')[:80]}")
 
     return {
         **item,
@@ -101,12 +104,35 @@ def parsear_item(item: dict) -> dict:
     }
 
 
+def _menciona_esfera(item: dict) -> bool:
+    """Indica se título ou resumo mencionam explicitamente a Esfera."""
+    texto = (f"{item.get('titulo', '')} {item.get('resumo', '')}").lower()
+
+    return "esfera" in texto
+
+
 def filtrar_relevantes(itens: list[dict]) -> list[dict]:
     """
-    Filtra apenas itens com pelo menos programa identificado.
-    Itens sem programa são descartados silenciosamente (não são sobre Esfera).
+    Mantém apenas candidatos relacionados à Esfera e com
+    programa aéreo de destino identificado.
+
+    O percentual de bônus não é obrigatório nesta etapa,
+    pois uma promoção legítima pode exigir revisão manual
+    quando o percentual não estiver presente no título/resumo.
     """
-    relevantes = [i for i in itens if i.get("programa")]
+    relevantes = [
+        item
+        for item in itens
+        if item.get("programa")
+        and _menciona_esfera(item)
+    ]
+
     ignorados = len(itens) - len(relevantes)
-    log.info(f"Parser: {len(relevantes)} relevantes, {ignorados} descartados (sem programa)")
+
+    log.info(
+        "Parser: %s relevantes, %s descartados",
+        len(relevantes),
+        ignorados,
+    )
+
     return relevantes

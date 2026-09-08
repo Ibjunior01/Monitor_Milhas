@@ -79,9 +79,17 @@ def test_rss_extra_usa_mesma_camanda_http(monkeypatch):
         ),
     )
 
-    resultado = sources.buscar_rss_extra(
-        "https://example.com/feed.xml"
-    )
+    resultado = sources.buscar_rss_extra("https://example.com/feed.xml")
 
     assert resultado == []
     assert chamadas == ["https://example.com/feed.xml"]
+
+
+def test_google_news_url_limita_resultados_a_sete_dias():
+    url = sources._gnews_url("Esfera LATAM bônus transferência")
+
+    assert "when%3A7d" in url
+    assert "b%C3%B4nus" in url
+    assert "transfer%C3%AAncia" in url
+    assert "hl=pt-BR" in url
+    assert "gl=BR" in url

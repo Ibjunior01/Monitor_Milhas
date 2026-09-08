@@ -6,6 +6,7 @@ Usa apenas feeds RSS e páginas abertas — sem login, sem CAPTCHA.
 import time
 from datetime import datetime
 from typing import Optional
+from urllib.parse import quote_plus
 
 import feedparser
 import requests
@@ -35,19 +36,23 @@ RSS_EXTRAS: list[str] = [
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (compatible; MonitorMilhasBot/1.0; "
-        "+https://github.com/seuusuario/monitor-milhas)"
+        "+https://github.com/Ibjunior01/Monitor_Milhas)"
     )
 }
 
 REQUEST_TIMEOUT = 10
 MAX_RETRIES = 2
 BACKOFF_SECONDS = 0.5
+GOOGLE_NEWS_RECENCIA_DIAS = 7
 
 
 def _gnews_url(termo: str) -> str:
-    termo_enc = termo.replace(" ", "+")
+    """Monta URL do Google News limitada à janela recente."""
+    consulta = f"{termo} when:{GOOGLE_NEWS_RECENCIA_DIAS}d"
+    termo_enc = quote_plus(consulta)
+
     return (
-        f"https://news.google.com/rss/search"
+        "https://news.google.com/rss/search"
         f"?q={termo_enc}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
     )
 

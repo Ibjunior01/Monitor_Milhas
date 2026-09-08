@@ -1,7 +1,51 @@
 """Testes unitários para parser.py"""
+
 import pytest
 
-from src.parser import extrair_bonus, extrair_programa, extrair_validade
+from src.parser import (
+    extrair_bonus,
+    extrair_programa,
+    extrair_validade,
+    filtrar_relevantes,
+)
+
+
+class TestFiltrarRelevantes:
+    def test_aceita_esfera_com_programa(self):
+        itens = [
+            {
+                "titulo": ("Esfera oferece bônus na transferência para LATAM Pass"),
+                "resumo": "",
+                "programa": "LATAM",
+                "bonus_pct": None,
+            }
+        ]
+
+        assert filtrar_relevantes(itens) == itens
+
+    def test_descarta_programa_de_outro_parceiro(self):
+        itens = [
+            {
+                "titulo": ("Livelo oferece 120% de bônus para Azul Fidelidade"),
+                "resumo": "",
+                "programa": "AZUL",
+                "bonus_pct": 120.0,
+            }
+        ]
+
+        assert filtrar_relevantes(itens) == []
+
+    def test_descarta_clube_smiles_sem_esfera(self):
+        itens = [
+            {
+                "titulo": ("Clube Smiles oferece até 30 mil milhas bônus"),
+                "resumo": "",
+                "programa": "SMILES",
+                "bonus_pct": None,
+            }
+        ]
+
+        assert filtrar_relevantes(itens) == []
 
 
 class TestExtrairPrograma:
@@ -23,7 +67,9 @@ class TestExtrairPrograma:
 
 class TestExtrairBonus:
     def test_bonus_percentual_direto(self):
-        assert extrair_bonus("Esfera com 30% de bônus para LATAM") == pytest.approx(30.0)
+        assert extrair_bonus("Esfera com 30% de bônus para LATAM") == pytest.approx(
+            30.0
+        )
 
     def test_bonus_invertido(self):
         assert extrair_bonus("bônus de 70% na transferência") == pytest.approx(70.0)
