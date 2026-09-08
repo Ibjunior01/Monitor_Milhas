@@ -83,3 +83,51 @@ def test_carregar_vistos_com_json_invalido_retorna_vazio(
     )
 
     assert storage.carregar_vistos() == set()
+
+
+def test_marcar_oportunidade_alertada_atualiza_registro(
+    tmp_path,
+    monkeypatch,
+):
+    oportunidades_path = tmp_path / "oportunidades.jsonl"
+
+    oportunidades_path.write_text(
+        ('{"id":"OP-1","alertado":false}\n{"id":"OP-2","alertado":false}\n'),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        storage,
+        "OPORTUNIDADES_PATH",
+        oportunidades_path,
+    )
+
+    atualizado = storage.marcar_oportunidade_alertada("OP-2")
+
+    registros = storage.carregar_oportunidades()
+
+    assert atualizado is True
+    assert registros[0]["alertado"] is False
+    assert registros[1]["alertado"] is True
+
+
+def test_marcar_oportunidade_alertada_id_inexistente(
+    tmp_path,
+    monkeypatch,
+):
+    oportunidades_path = tmp_path / "oportunidades.jsonl"
+
+    oportunidades_path.write_text(
+        '{"id":"OP-1","alertado":false}\n',
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        storage,
+        "OPORTUNIDADES_PATH",
+        oportunidades_path,
+    )
+
+    atualizado = storage.marcar_oportunidade_alertada("NAO-EXISTE")
+
+    assert atualizado is False

@@ -185,3 +185,50 @@ def data_ultima_varredura() -> Optional[str]:
         return None
 
     return estado.get("data_execucao")
+
+
+def marcar_oportunidade_alertada(oportunidade_id: str) -> bool:
+    """Marca uma oportunidade persistida como alertada.
+
+    Retorna True quando o registro foi encontrado e atualizado.
+    """
+    if not OPORTUNIDADES_PATH.exists():
+        return False
+
+    registros = carregar_oportunidades()
+    encontrado = False
+
+    for registro in registros:
+        if registro.get("id") == oportunidade_id:
+            registro["alertado"] = True
+            encontrado = True
+            break
+
+    if not encontrado:
+        return False
+
+    temp_path = OPORTUNIDADES_PATH.with_suffix(".jsonl.tmp")
+
+    try:
+        with open(temp_path, "w", encoding="utf-8") as f:
+            for registro in registros:
+                f.write(
+                    json.dumps(
+                        registro,
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+            f.flush()
+
+        temp_path.replace(OPORTUNIDADES_PATH)
+
+    except OSError:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+    log.debug(
+        "Oportunidade marcada como alertada: %s",
+        oportunidade_id,
+    )
+    return True

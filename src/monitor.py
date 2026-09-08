@@ -19,6 +19,7 @@ from src.storage import (
     salvar_oportunidade,
     criar_oportunidade,
     salvar_ultima_varredura,
+    marcar_oportunidade_alertada,
 )
 
 from src.telegram_alerts import enviar_alerta
@@ -138,8 +139,12 @@ def executar_varredura() -> dict:
 
         if status == StatusOportunidade.APROVADA:
             resumo["aprovadas"] += 1
+
             sucesso = enviar_alerta(op)
+
             if sucesso:
+                op.alertado = True
+                marcar_oportunidade_alertada(op.id)
                 resumo["alertas_enviados"] += 1
         else:
             resumo["ignoradas"] += 1
