@@ -10,8 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from src.models import Oportunidade, StatusOportunidade
 from src.logger import get_logger
+from src.models import Oportunidade, StatusOportunidade
 
 log = get_logger("storage")
 

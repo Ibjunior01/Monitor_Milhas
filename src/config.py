@@ -6,10 +6,11 @@ Projetado para migração futura para banco de dados sem alterar o restante do c
 import json
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
-from src.models import ConfigPrograma, ConfigUsuario
 from src.logger import get_logger
+from src.models import ConfigPrograma, ConfigUsuario
 
 load_dotenv()
 log = get_logger("config")

@@ -10,7 +10,6 @@ from src.config import telegram_credentials
 from src.logger import get_logger
 from src.models import Oportunidade
 
-
 log = get_logger("telegram")
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"

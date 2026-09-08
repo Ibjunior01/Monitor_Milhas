@@ -2,29 +2,27 @@
 Orquestrador principal: coleta → parse → cálculo → decisão → storage → alerta.
 """
 
-from datetime import datetime
-from src.logger import get_logger
-from src.config import carregar_config
-from src.sources import coletar_todas_fontes
-from src.parser import parsear_item, filtrar_relevantes
+from datetime import datetime, timedelta
+
 from src.calculations import (
+    avaliar_oportunidade,
     calcular_milhas_finais,
     calcular_valor_estimado,
-    avaliar_oportunidade,
 )
-
+from src.config import carregar_config
+from src.logger import get_logger
+from src.models import StatusOportunidade
+from src.parser import filtrar_relevantes, parsear_item
+from src.sources import coletar_todas_fontes
 from src.storage import (
     carregar_vistos,
-    salvar_visto,
-    salvar_oportunidade,
     criar_oportunidade,
-    salvar_ultima_varredura,
     marcar_oportunidade_alertada,
+    salvar_oportunidade,
+    salvar_ultima_varredura,
+    salvar_visto,
 )
-
 from src.telegram_alerts import enviar_alerta
-from src.models import StatusOportunidade
-from datetime import timedelta
 
 log = get_logger("monitor")
 

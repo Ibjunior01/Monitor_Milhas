@@ -1,9 +1,10 @@
 """Testes unitários para calculations.py"""
 import pytest
+
 from src.calculations import (
+    avaliar_oportunidade,
     calcular_milhas_finais,
     calcular_valor_estimado,
-    avaliar_oportunidade,
     melhor_opcao,
 )
 from src.models import ConfigPrograma, ConfigUsuario, StatusOportunidade

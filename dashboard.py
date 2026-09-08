@@ -18,7 +18,6 @@ from src.storage import (
     data_ultima_varredura,
 )
 
-
 # ── Configuração da página ──────────────────────────────────────────────────
 st.set_page_config(
     page_title="Monitor de Milhas · Esfera",

@@ -3,12 +3,13 @@ Coleta de fontes públicas de promoções de milhas.
 Usa apenas feeds RSS e páginas abertas — sem login, sem CAPTCHA.
 """
 
-import re
 import time
-import feedparser
-import requests
 from datetime import datetime
 from typing import Optional
+
+import feedparser
+import requests
+
 from src.logger import get_logger
 
 log = get_logger("sources")

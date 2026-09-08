@@ -2,10 +2,10 @@
 Modelos de domínio do Monitor de Milhas.
 Separados do banco/persistência para facilitar migração futura.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 from enum import Enum
+from typing import Optional
 
 
 class StatusOportunidade(str, Enum):

@@ -5,6 +5,7 @@ de texto livre de notícias/títulos.
 import re
 from datetime import datetime
 from typing import Optional
+
 from src.logger import get_logger
 
 log = get_logger("parser")

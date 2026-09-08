@@ -36,8 +36,9 @@ def test_item_nao_e_marcado_como_visto_se_persistencia_falhar(
     monkeypatch,
 ):
     """Falha ao persistir não deve fazer o item ser perdido."""
-    import pytest
     from types import SimpleNamespace
+
+    import pytest
 
     link = "https://example.com/promocao"
 

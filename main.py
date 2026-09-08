@@ -3,8 +3,9 @@ Entry point do Monitor de Milhas.
 Uso: python main.py
 """
 import sys
-from src.monitor import executar_varredura
+
 from src.logger import get_logger
+from src.monitor import executar_varredura
 
 log = get_logger("main")
 

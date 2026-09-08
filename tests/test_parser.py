@@ -1,6 +1,7 @@
 """Testes unitários para parser.py"""
 import pytest
-from src.parser import extrair_programa, extrair_bonus, extrair_validade
+
+from src.parser import extrair_bonus, extrair_programa, extrair_validade
 
 
 class TestExtrairPrograma:
