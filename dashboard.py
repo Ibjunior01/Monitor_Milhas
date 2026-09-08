@@ -3,12 +3,20 @@ Dashboard Monitor de Milhas — Streamlit
 Uso: streamlit run dashboard.py
 """
 
+from datetime import datetime
+
 import pandas as pd
 import streamlit as st
-import json
-from pathlib import Path
-from datetime import datetime
-from src.storage import data_ultima_varredura
+
+from src.calculations import (
+    calcular_milhas_finais,
+    calcular_valor_estimado,
+)
+from src.config import carregar_config, salvar_config
+from src.storage import (
+    carregar_oportunidades,
+    data_ultima_varredura,
+)
 
 
 # ── Configuração da página ──────────────────────────────────────────────────
@@ -53,52 +61,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Paths ───────────────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-
-CONFIG_PATH = DATA_DIR / "config.json"
-COTACAO_PATH = DATA_DIR / "cotacao_milhas.json"
-OPORTUNIDADES_PATH = DATA_DIR / "oportunidades.jsonl"
-
-
-# ── Helpers ─────────────────────────────────────────────────────────────────
-def _load_json(path: Path, default):
-    if not path.exists():
-        return default
-    try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
-
-
-def _save_json(path: Path, data):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def _load_oportunidades() -> list[dict]:
-    if not OPORTUNIDADES_PATH.exists():
-        return []
-    ops = []
-    with open(OPORTUNIDADES_PATH, encoding="utf-8") as f:
-        for linha in f:
-            linha = linha.strip()
-            if linha:
-                try:
-                    ops.append(json.loads(linha))
-                except Exception:
-                    pass
-    return ops
-
-
-def _calcular(pontos: int, bonus_pct: float, milheiro: float) -> tuple[float, float]:
-    milhas = pontos * (1 + bonus_pct / 100)
-    valor = (milhas / 1000) * milheiro
-    return milhas, valor
-
 
 # ── Sidebar — Configurações ─────────────────────────────────────────────────
 with st.sidebar:
@@ -107,94 +69,108 @@ with st.sidebar:
     st.caption("Esfera → LATAM · Smiles · Azul")
     st.divider()
 
-    cfg_raw = _load_json(
-        CONFIG_PATH,
-        {
-            "pontos_disponiveis": 32000,
-            "meta_financeira_minima": 900.0,
-            "programas": {
-                "LATAM": {"bonus_minimo_pct": 20, "ativo": True},
-                "SMILES": {"bonus_minimo_pct": 70, "ativo": True},
-                "AZUL": {"bonus_minimo_pct": 80, "ativo": True},
-            },
-        },
-    )
-    cotacoes = _load_json(COTACAO_PATH, {"LATAM": 25.0, "SMILES": 16.0, "AZUL": 13.0})
+    cfg = carregar_config()
+
+    latam_cfg = cfg.programas["LATAM"]
+    smiles_cfg = cfg.programas["SMILES"]
+    azul_cfg = cfg.programas["AZUL"]
 
     st.markdown("### ⚙️ Configurações")
     pontos = st.number_input(
         "Pontos Esfera disponíveis",
         min_value=0,
         step=1000,
-        value=cfg_raw.get("pontos_disponiveis", 32000),
+        value=int(cfg.pontos_disponiveis),
     )
     meta_fin = st.number_input(
         "Meta financeira mínima (R$)",
         min_value=0.0,
         step=50.0,
-        value=float(cfg_raw.get("meta_financeira_minima", 900.0)),
+        value=float(cfg.meta_financeira_minima),
     )
 
     st.markdown("#### Metas de bônus por programa")
-    programas_cfg = cfg_raw.get("programas", {})
     meta_latam = st.number_input(
         "LATAM — bônus mínimo (%)",
         min_value=0,
         max_value=500,
         step=5,
-        value=int(programas_cfg.get("LATAM", {}).get("bonus_minimo_pct", 20)),
+        value=int(latam_cfg.bonus_minimo_pct),
     )
+
     meta_smiles = st.number_input(
         "Smiles — bônus mínimo (%)",
         min_value=0,
         max_value=500,
         step=5,
-        value=int(programas_cfg.get("SMILES", {}).get("bonus_minimo_pct", 70)),
+        value=int(smiles_cfg.bonus_minimo_pct),
     )
+
     meta_azul = st.number_input(
         "Azul — bônus mínimo (%)",
         min_value=0,
         max_value=500,
         step=5,
-        value=int(programas_cfg.get("AZUL", {}).get("bonus_minimo_pct", 80)),
+        value=int(azul_cfg.bonus_minimo_pct),
     )
 
     st.markdown("#### Valor do milheiro (R$ / 1.000 milhas)")
     mil_latam = st.number_input(
-        "LATAM", min_value=0.0, step=0.5, value=float(cotacoes.get("LATAM", 25.0))
+        "LATAM",
+        min_value=0.0,
+        step=0.5,
+        value=float(latam_cfg.valor_milheiro),
     )
+
     mil_smiles = st.number_input(
-        "Smiles", min_value=0.0, step=0.5, value=float(cotacoes.get("SMILES", 16.0))
+        "Smiles",
+        min_value=0.0,
+        step=0.5,
+        value=float(smiles_cfg.valor_milheiro),
     )
+
     mil_azul = st.number_input(
-        "Azul", min_value=0.0, step=0.5, value=float(cotacoes.get("AZUL", 13.0))
+        "Azul",
+        min_value=0.0,
+        step=0.5,
+        value=float(azul_cfg.valor_milheiro),
+    )
+
+    st.markdown("#### Programas monitorados")
+
+    ativo_latam = st.checkbox(
+        "Monitorar LATAM",
+        value=latam_cfg.ativo,
+    )
+
+    ativo_smiles = st.checkbox(
+        "Monitorar Smiles",
+        value=smiles_cfg.ativo,
+    )
+
+    ativo_azul = st.checkbox(
+        "Monitorar Azul",
+        value=azul_cfg.ativo,
     )
 
     if st.button("💾 Salvar configurações", use_container_width=True):
-        novo_cfg = {
-            "pontos_disponiveis": pontos,
-            "meta_financeira_minima": meta_fin,
-            "programas": {
-                "LATAM": {
-                    "bonus_minimo_pct": meta_latam,
-                    "ativo": True,
-                    "valor_milheiro_fallback": mil_latam,
-                },
-                "SMILES": {
-                    "bonus_minimo_pct": meta_smiles,
-                    "ativo": True,
-                    "valor_milheiro_fallback": mil_smiles,
-                },
-                "AZUL": {
-                    "bonus_minimo_pct": meta_azul,
-                    "ativo": True,
-                    "valor_milheiro_fallback": mil_azul,
-                },
-            },
-        }
-        nova_cotacao = {"LATAM": mil_latam, "SMILES": mil_smiles, "AZUL": mil_azul}
-        _save_json(CONFIG_PATH, novo_cfg)
-        _save_json(COTACAO_PATH, nova_cotacao)
+        cfg.pontos_disponiveis = int(pontos)
+        cfg.meta_financeira_minima = float(meta_fin)
+
+        latam_cfg.bonus_minimo_pct = float(meta_latam)
+        latam_cfg.valor_milheiro = float(mil_latam)
+        latam_cfg.ativo = ativo_latam
+
+        smiles_cfg.bonus_minimo_pct = float(meta_smiles)
+        smiles_cfg.valor_milheiro = float(mil_smiles)
+        smiles_cfg.ativo = ativo_smiles
+
+        azul_cfg.bonus_minimo_pct = float(meta_azul)
+        azul_cfg.valor_milheiro = float(mil_azul)
+        azul_cfg.ativo = ativo_azul
+
+        salvar_config(cfg)
+
         st.success("Configurações salvas!")
         st.rerun()
 
@@ -219,7 +195,7 @@ with st.sidebar:
 # ── Main — KPIs ─────────────────────────────────────────────────────────────
 st.title("✈️ Monitor de Milhas · Esfera")
 
-oportunidades = _load_oportunidades()
+oportunidades = carregar_oportunidades()
 total = len(oportunidades)
 aprovadas_total = sum(1 for o in oportunidades if o.get("status") == "aprovada")
 ignoradas_total = sum(
@@ -304,7 +280,15 @@ rows = []
 melhor_valor = -1
 melhor_prog = ""
 for c in cenarios:
-    milhas, valor = _calcular(pontos, c["Bônus (%)"], c["Milheiro (R$)"])
+    milhas = calcular_milhas_finais(
+        pontos,
+        c["Bônus (%)"],
+    )
+
+    valor = calcular_valor_estimado(
+        milhas,
+        c["Milheiro (R$)"],
+    )
     meta_b = {"LATAM": meta_latam, "Smiles": meta_smiles, "Azul": meta_azul}[
         c["Programa"]
     ]
@@ -344,7 +328,14 @@ st.markdown(
 
 chart_data = {}
 for c in cenarios:
-    _, valor = _calcular(pontos, c["Bônus (%)"], c["Milheiro (R$)"])
+    milhas = calcular_milhas_finais(
+        pontos,
+        c["Bônus (%)"],
+    )
+    valor = calcular_valor_estimado(
+        milhas,
+        c["Milheiro (R$)"],
+    )
     chart_data[c["Programa"]] = round(valor, 2)
 
 df_chart = pd.DataFrame.from_dict({"Valor Estimado (R$)": chart_data}, orient="index").T

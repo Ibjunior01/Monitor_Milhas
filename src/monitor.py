@@ -101,7 +101,15 @@ def executar_varredura() -> dict:
             if link:
                 salvar_visto(link)
             continue
-
+        
+        if not programa_cfg.ativo:
+            log.info(
+                f"Programa '{programa_nome}' está desativado. Ignorando item."
+            )
+            if link:
+                salvar_visto(link)
+            continue                                                            
+        
         milhas = calcular_milhas_finais(config.pontos_disponiveis, bonus_pct)
         valor = calcular_valor_estimado(milhas, programa_cfg.valor_milheiro)
         status, recomendacao = avaliar_oportunidade(bonus_pct, programa_cfg, config)

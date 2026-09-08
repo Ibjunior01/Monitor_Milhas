@@ -2,6 +2,7 @@
 Carrega configurações do arquivo config.json e variáveis de ambiente.
 Projetado para migração futura para banco de dados sem alterar o restante do código.
 """
+
 import json
 import os
 from pathlib import Path
@@ -54,8 +55,11 @@ def salvar_config(config: ConfigUsuario) -> None:
     raw["meta_financeira_minima"] = config.meta_financeira_minima
 
     for nome, prog in config.programas.items():
-        if nome in raw["programas"]:
-            raw["programas"][nome]["bonus_minimo_pct"] = prog.bonus_minimo_pct
+        programa_raw = raw["programas"].setdefault(nome, {})
+
+        programa_raw["bonus_minimo_pct"] = prog.bonus_minimo_pct
+        programa_raw["ativo"] = prog.ativo
+        programa_raw["valor_milheiro_fallback"] = prog.valor_milheiro
 
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(raw, f, ensure_ascii=False, indent=2)
@@ -75,9 +79,21 @@ def _criar_config_padrao() -> None:
         "pontos_disponiveis": 32000,
         "meta_financeira_minima": 900.0,
         "programas": {
-            "LATAM": {"bonus_minimo_pct": 20, "ativo": True, "valor_milheiro_fallback": 25.0},
-            "SMILES": {"bonus_minimo_pct": 70, "ativo": True, "valor_milheiro_fallback": 16.0},
-            "AZUL": {"bonus_minimo_pct": 80, "ativo": True, "valor_milheiro_fallback": 13.0},
+            "LATAM": {
+                "bonus_minimo_pct": 20,
+                "ativo": True,
+                "valor_milheiro_fallback": 25.0,
+            },
+            "SMILES": {
+                "bonus_minimo_pct": 70,
+                "ativo": True,
+                "valor_milheiro_fallback": 16.0,
+            },
+            "AZUL": {
+                "bonus_minimo_pct": 80,
+                "ativo": True,
+                "valor_milheiro_fallback": 13.0,
+            },
         },
     }
     cotacao_padrao = {"LATAM": 25.0, "SMILES": 16.0, "AZUL": 13.0}

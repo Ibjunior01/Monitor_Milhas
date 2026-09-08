@@ -30,7 +30,8 @@ def test_varredura_sem_oportunidades_persiste_estado(monkeypatch):
     }
 
     assert resumos_salvos == [resumo]
-    
+
+
 def test_item_nao_e_marcado_como_visto_se_persistencia_falhar(
     monkeypatch,
 ):
@@ -53,6 +54,7 @@ def test_item_nao_e_marcado_como_visto_se_persistencia_falhar(
         programas={
             "Smiles": SimpleNamespace(
                 valor_milheiro=20.0,
+                ativo=True,
             )
         },
     )
