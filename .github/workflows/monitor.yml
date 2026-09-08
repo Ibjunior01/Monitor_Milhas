@@ -1,0 +1,108 @@
+name: Monitor de Milhas
+
+on:
+  schedule:
+    # GitHub Actions usa UTC.
+    # 11:00 UTC = 08:00 em UTC-3.
+    - cron: "0 11 * * *"
+
+    # 21:00 UTC = 18:00 em UTC-3.
+    - cron: "0 21 * * *"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monitor-milhas
+  cancel-in-progress: false
+
+jobs:
+  monitorar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Atualizar pip
+        run: python -m pip install --upgrade pip
+
+      - name: Instalar dependências
+        run: python -m pip install -r requirements.txt
+
+      - name: Restaurar estado persistente
+        shell: bash
+        run: |
+          git fetch origin state
+
+          for file in \
+            data/vistos.json \
+            data/oportunidades.jsonl \
+            data/ultima_varredura.json
+          do
+            if git cat-file -e "origin/state:$file" 2>/dev/null; then
+              mkdir -p "$(dirname "$file")"
+              git show "origin/state:$file" > "$file"
+              echo "Restaurado: $file"
+            else
+              echo "Estado ainda inexistente: $file"
+            fi
+          done
+
+      - name: Executar varredura
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
+
+      - name: Persistir estado da execução
+        if: success()
+        shell: bash
+        run: |
+          rm -rf /tmp/monitor-state
+          git worktree add /tmp/monitor-state origin/state
+
+          mkdir -p /tmp/monitor-state/data
+
+          for file in \
+            vistos.json \
+            oportunidades.jsonl \
+            ultima_varredura.json
+          do
+            if [ -f "data/$file" ]; then
+              cp "data/$file" "/tmp/monitor-state/data/$file"
+            fi
+          done
+
+          cd /tmp/monitor-state
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for file in \
+            data/vistos.json \
+            data/oportunidades.jsonl \
+            data/ultima_varredura.json
+          do
+            if [ -f "$file" ]; then
+              git add -f "$file"
+            fi
+          done
+
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração de estado para persistir."
+            exit 0
+          fi
+
+          git commit -m "chore: update monitor runtime state"
+          git push origin HEAD:state

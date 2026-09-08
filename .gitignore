@@ -7,9 +7,10 @@ __pycache__/
 venv/
 env/
 
-# Dados sensíveis (logs e histórico ficam em data/ — decida se commita)
-data/oportunidades.jsonl
+# Estado local de execução
 data/vistos.json
+data/oportunidades.jsonl
+data/ultima_varredura.json
 data/monitor.log
 
 # IDE
