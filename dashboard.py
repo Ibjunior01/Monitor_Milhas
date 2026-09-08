@@ -13,6 +13,7 @@ from src.calculations import (
     calcular_valor_estimado,
 )
 from src.config import carregar_config, salvar_config
+from src.state_sync import sincronizar_estado_remoto
 from src.storage import (
     carregar_oportunidades,
     data_ultima_varredura,
@@ -45,6 +46,11 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Sincroniza uma vez ao abrir cada sessão do dashboard.
+if "estado_remoto_verificado" not in st.session_state:
+    st.session_state["resultado_sync"] = sincronizar_estado_remoto()
+    st.session_state["estado_remoto_verificado"] = True
 
 # ── CSS personalizado ───────────────────────────────────────────────────────
 st.markdown(
@@ -192,6 +198,24 @@ with st.sidebar:
 
         st.success("Configurações salvas!")
         st.rerun()
+
+    if st.button(
+        "🔄 Atualizar dados remotos",
+        use_container_width=True,
+    ):
+        resultado_sync = sincronizar_estado_remoto()
+
+        if resultado_sync["status"] == "atualizado":
+            st.success("Dados remotos atualizados.")
+        elif resultado_sync["status"] == "local_atual":
+            st.info("Os dados locais já são os mais recentes.")
+        elif resultado_sync["status"] == "sem_estado_remoto":
+            st.info("Ainda não há estado remoto disponível.")
+        else:
+            st.warning(
+                "Não foi possível sincronizar com o GitHub. "
+                "Os dados locais foram mantidos."
+            )
 
     st.divider()
     if st.button(

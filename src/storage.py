@@ -232,3 +232,43 @@ def marcar_oportunidade_alertada(oportunidade_id: str) -> bool:
         oportunidade_id,
     )
     return True
+
+
+def substituir_estado_runtime(
+    vistos: set[str],
+    oportunidades: list[dict],
+    ultima_varredura: dict,
+) -> None:
+    """Substitui o snapshot local por um estado remoto validado."""
+    _salvar_json_atomico(
+        VISTOS_PATH,
+        sorted(vistos),
+    )
+
+    OPORTUNIDADES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = OPORTUNIDADES_PATH.with_suffix(".jsonl.tmp")
+
+    try:
+        with open(temp_path, "w", encoding="utf-8") as f:
+            for registro in oportunidades:
+                f.write(
+                    json.dumps(
+                        registro,
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+            f.flush()
+
+        temp_path.replace(OPORTUNIDADES_PATH)
+
+    except OSError:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+    # Gravado por último: funciona como marcador de que
+    # o snapshot foi completamente aplicado.
+    _salvar_json_atomico(
+        ULTIMA_VARREDURA_PATH,
+        ultima_varredura,
+    )
