@@ -1,236 +1,800 @@
-# ✈️ Monitor de Milhas · Esfera
+# ✈️ Monitor de Milhas
 
-MVP local para monitorar promoções de transferência bonificada do programa Esfera para LATAM Pass, Smiles e Azul Fidelidade.
+Aplicação em Python para monitoramento de oportunidades de transferência de pontos da **Esfera** para programas de fidelidade aérea, com coleta automatizada de fontes públicas, análise de promoções, regras de negócio, alertas via Telegram e dashboard em Streamlit.
 
-> **Importante:** Este sistema monitora apenas fontes públicas e envia alertas para análise manual. Ele **não automatiza login, não acessa contas pessoais e não realiza transferências**.
+O projeto foi desenvolvido com foco em:
+
+- automação;
+- confiabilidade do fluxo de dados;
+- deduplicação;
+- persistência;
+- tratamento de falhas;
+- testes automatizados;
+- CI;
+- execução agendada;
+- observabilidade;
+- responsividade;
+- tema claro e escuro.
 
 ---
 
-## 📦 Estrutura do projeto
+## 📌 Problema
 
+Promoções de transferência de pontos podem surgir em diferentes fontes e permanecer disponíveis por períodos curtos.
+
+Acompanhar manualmente essas oportunidades exige consultar diversos sites, identificar:
+
+- programa de destino;
+- percentual de bônus;
+- validade;
+- valor estimado das milhas;
+- aderência às metas do usuário.
+
+Além disso, um monitor automatizado precisa evitar:
+
+- processar repetidamente a mesma notícia;
+- considerar conteúdo antigo;
+- classificar promoções de outros parceiros como se fossem da Esfera;
+- perder oportunidades quando integrações externas falham;
+- exibir dados desatualizados no dashboard.
+
+---
+
+## 💡 Solução
+
+O Monitor de Milhas automatiza esse fluxo:
+
+```text
+Fontes públicas
+      ↓
+Coleta RSS / HTTP
+      ↓
+Filtro de recência
+      ↓
+Parser
+      ↓
+Filtro Esfera
+      ↓
+Regras de negócio
+      ↓
+Persistência
+      ↓
+Telegram
+      ↓
+Dashboard
 ```
-monitor-milhas/
-├── src/
-│   ├── models.py          # Dataclasses de domínio
-│   ├── config.py          # Configurações e .env
-│   ├── calculations.py    # Cálculos financeiros (puro, testável)
-│   ├── sources.py         # Coleta de feeds RSS públicos
-│   ├── parser.py          # Extração de programa e % de bônus
-│   ├── storage.py         # Persistência em JSON/JSONL
-│   ├── telegram_alerts.py # Alertas via Telegram Bot
-│   ├── monitor.py         # Orquestrador principal
-│   └── logger.py          # Logger centralizado
-├── dashboard.py           # Dashboard Streamlit
-├── main.py                # Entry point CLI
+
+O sistema monitora atualmente oportunidades relacionadas a:
+
+- LATAM Pass;
+- Smiles;
+- Azul Fidelidade.
+
+A origem monitorada é a **Esfera**.
+
+Resultados relacionados exclusivamente a outros parceiros, como Livelo, Coopera, Méliuz, Inter Loop ou programas similares, são descartados pelo filtro de relevância.
+
+---
+
+## 🚀 Funcionalidades
+
+### Monitoramento
+
+- coleta de notícias por Google News RSS;
+- consultas limitadas aos últimos 7 dias;
+- múltiplos termos de busca;
+- timeout explícito;
+- retries controlados;
+- backoff entre tentativas;
+- User-Agent configurado;
+- isolamento de falhas HTTP.
+
+### Parser
+
+Identifica:
+
+- programa de fidelidade;
+- percentual de bônus;
+- validade quando disponível;
+- dados relevantes da promoção.
+
+O parser não inventa valores ausentes.
+
+Exemplo:
+
+```text
+"30 mil milhas bônus"
+```
+
+não é interpretado automaticamente como:
+
+```text
+30% de bônus
+```
+
+---
+
+## 🎯 Regras de negócio
+
+O sistema considera:
+
+- quantidade de pontos Esfera disponíveis;
+- bônus mínimo por programa;
+- valor estimado do milheiro;
+- meta financeira mínima;
+- programa ativo ou inativo.
+
+O dashboard possui um simulador comparativo para:
+
+- LATAM;
+- Smiles;
+- Azul.
+
+Cada cenário mostra:
+
+- bônus;
+- milhas finais;
+- valor do milheiro;
+- valor estimado;
+- meta de bônus;
+- status.
+
+Estados possíveis no simulador:
+
+```text
+✅ Aprovada
+⚠️ Valor abaixo da meta
+❌ Bônus abaixo da meta
+```
+
+---
+
+## 🧠 Deduplicação e idempotência
+
+Links já processados são registrados em:
+
+```text
+data/vistos.json
+```
+
+A regra foi projetada para evitar perda de oportunidades.
+
+Um item relevante segue o fluxo:
+
+```text
+processamento
+→ cálculo
+→ persistência
+→ marcação como visto
+```
+
+Se a persistência da oportunidade falhar, o link não é marcado como processado e poderá ser tentado novamente.
+
+Itens analisados e corretamente descartados como irrelevantes também são registrados como processados para evitar reprocessamento desnecessário.
+
+A deduplicação foi validada com duas varreduras consecutivas:
+
+```text
+1ª execução
+→ itens novos processados
+→ links persistidos
+
+2ª execução
+→ itens já conhecidos ignorados
+```
+
+---
+
+## 💾 Persistência
+
+O projeto utiliza persistência simples em JSON e JSONL.
+
+### Configuração
+
+```text
+data/config.json
+data/cotacao_milhas.json
+```
+
+### Estado de execução
+
+```text
+data/vistos.json
+data/oportunidades.jsonl
+data/ultima_varredura.json
+```
+
+Arquivos JSON críticos utilizam escrita por arquivo temporário seguida de substituição do destino, reduzindo risco de corrupção por escrita incompleta.
+
+---
+
+## ☁️ Persistência no GitHub Actions
+
+Runners do GitHub Actions possuem filesystem efêmero.
+
+Por isso, o estado operacional não depende do disco do runner.
+
+O projeto utiliza uma branch dedicada:
+
+```text
+state
+```
+
+Ela armazena exclusivamente o runtime state:
+
+```text
+data/vistos.json
+data/oportunidades.jsonl
+data/ultima_varredura.json
+```
+
+Fluxo:
+
+```text
+GitHub Actions
+      ↓
+restaura branch state
+      ↓
+executa monitor
+      ↓
+atualiza estado
+      ↓
+commit automático
+      ↓
+branch state
+```
+
+Isso mantém código e estado separados:
+
+```text
+main  → aplicação
+state → runtime state
+```
+
+---
+
+## 🔄 Sincronização do dashboard
+
+O dashboard local consegue sincronizar o estado produzido pelo monitor automático.
+
+Fluxo:
+
+```text
+GitHub Actions
+      ↓
+branch state
+      ↓
+state_sync.py
+      ↓
+storage local
+      ↓
+dashboard
+```
+
+A sincronização compara timestamps.
+
+### Estado remoto mais recente
+
+```text
+→ atualiza estado local
+```
+
+### Estado local igual ou mais recente
+
+```text
+→ mantém estado local
+```
+
+### GitHub indisponível
+
+```text
+→ preserva dados locais
+```
+
+O usuário também pode executar manualmente:
+
+```text
+🔄 Atualizar dados remotos
+```
+
+---
+
+## 🕒 Datas e timezone
+
+Timestamps novos são armazenados em UTC com timezone explícito:
+
+```text
+2026-09-08T18:03:24+00:00
+```
+
+O dashboard converte a apresentação para horário UTC-3.
+
+Estados antigos gravados sem timezone possuem tratamento de compatibilidade.
+
+---
+
+## 📲 Telegram
+
+O sistema pode enviar oportunidades aprovadas para um bot do Telegram.
+
+Credenciais são obtidas exclusivamente por variáveis de ambiente:
+
+```text
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+```
+
+O monitor trata:
+
+- ausência de credenciais;
+- timeout;
+- falha HTTP;
+- falha de rede;
+- resposta inválida;
+- indisponibilidade do Telegram.
+
+Uma falha no Telegram não remove uma oportunidade já persistida.
+
+O campo:
+
+```text
+alertado
+```
+
+só é atualizado para `true` após confirmação de envio.
+
+O tratamento de erros evita registrar o token do bot nos logs.
+
+---
+
+## 📊 Dashboard
+
+Interface desenvolvida com Streamlit.
+
+Principais elementos:
+
+- pontos Esfera disponíveis;
+- oportunidades encontradas;
+- meta financeira;
+- última varredura;
+- simulador comparativo;
+- gráfico de valor estimado;
+- histórico de oportunidades;
+- configuração por programa;
+- sincronização remota;
+- execução manual do monitor.
+
+### Responsividade
+
+Os KPIs se adaptam conforme a largura:
+
+```text
+Desktop → 4 colunas
+Tablet  → 2 colunas
+Mobile  → 1 coluna
+```
+
+A sidebar utiliza seções recolhíveis para reduzir o espaço vertical.
+
+### Tema
+
+O dashboard suporta:
+
+- Dark;
+- Light.
+
+O tema padrão do projeto é Dark.
+
+Componentes customizados utilizam variáveis do tema do Streamlit para preservar contraste nos dois modos.
+
+---
+
+## 📈 Gráfico
+
+O comparativo financeiro utiliza Altair.
+
+O eixo Y possui base fixa em:
+
+```text
+R$ 0
+```
+
+evitando escalas negativas para valores financeiros que não podem ser negativos.
+
+---
+
+## 🧪 Testes automatizados
+
+Framework:
+
+```text
+Pytest
+```
+
+Estado atual:
+
+```text
+50 testes passando
+```
+
+A suíte cobre áreas como:
+
+- cálculos;
+- parser;
+- configuração;
+- storage;
+- monitor;
+- fontes externas;
+- Telegram;
+- persistência;
+- deduplicação;
+- última varredura;
+- sincronização remota;
+- tratamento de falhas.
+
+Os testes não dependem de:
+
+- Google News real;
+- Telegram real;
+- conexão com internet.
+
+São utilizados:
+
+- mocks;
+- monkeypatch;
+- tmp_path;
+- fixtures.
+
+Executar:
+
+```bash
+python -m pytest
+```
+
+---
+
+## 🧹 Qualidade de código
+
+O projeto utiliza Ruff.
+
+Configuração:
+
+```text
+pyproject.toml
+```
+
+Executar:
+
+```bash
+python -m ruff check .
+```
+
+Fluxo de validação recomendado:
+
+```bash
+python -m ruff check .
+python -m pytest
+```
+
+---
+
+## ⚙️ CI
+
+Workflow:
+
+```text
+.github/workflows/ci.yml
+```
+
+Executado em:
+
+```text
+push
+pull_request
+```
+
+Pipeline:
+
+```text
+Checkout
+→ Python 3.12
+→ dependências
+→ Ruff
+→ Pytest
+```
+
+A CI não depende de:
+
+- Telegram;
+- Google News;
+- secrets.
+
+---
+
+## ⏰ Monitor agendado
+
+Workflow:
+
+```text
+.github/workflows/monitor.yml
+```
+
+Execuções configuradas:
+
+```text
+11:00 UTC
+21:00 UTC
+```
+
+Equivalentes atualmente a aproximadamente:
+
+```text
+08:00 UTC-3
+18:00 UTC-3
+```
+
+Também é possível executar manualmente pelo:
+
+```text
+workflow_dispatch
+```
+
+O workflow foi validado manualmente com sucesso.
+
+---
+
+## 🪵 Logging
+
+O projeto utiliza logging para registrar operações como:
+
+- início da execução;
+- fontes consultadas;
+- quantidade de itens;
+- processamento;
+- oportunidades;
+- Telegram;
+- persistência;
+- falhas.
+
+Arquivo local:
+
+```text
+data/monitor.log
+```
+
+Tokens e credenciais não devem ser registrados.
+
+---
+
+## 🔐 Segurança
+
+Práticas aplicadas:
+
+- tokens fora do código;
+- `.env` ignorado pelo Git;
+- `.env.example` sem segredos;
+- timeout em integrações externas;
+- tratamento controlado de exceções;
+- logs sem exposição do token Telegram;
+- escrita segura de JSON;
+- workflow com responsabilidades separadas;
+- estado operacional separado da branch principal.
+
+O dashboard executado localmente não exige autenticação.
+
+Caso seja publicado com ações operacionais habilitadas, autenticação deverá ser considerada antes de disponibilização pública.
+
+---
+
+## 🗂️ Estrutura
+
+```text
+Monitor_Milhas/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       └── monitor.yml
+│
+├── .streamlit/
+│   └── config.toml
+│
 ├── data/
-│   ├── config.json        # Metas e configurações
-│   ├── cotacao_milhas.json# Valor do milheiro por programa
-│   ├── oportunidades.jsonl# Histórico de oportunidades
-│   └── vistos.json        # Links já processados
+│   ├── config.json
+│   └── cotacao_milhas.json
+│
+├── src/
+│   ├── __init__.py
+│   ├── calculations.py
+│   ├── config.py
+│   ├── logger.py
+│   ├── models.py
+│   ├── monitor.py
+│   ├── parser.py
+│   ├── sources.py
+│   ├── state_sync.py
+│   ├── storage.py
+│   └── telegram_alerts.py
+│
 ├── tests/
-│   ├── test_calculations.py
-│   └── test_parser.py
-├── .env.example
+├── dashboard.py
+├── main.py
+├── pyproject.toml
 ├── requirements.txt
+├── requirements-dev.txt
 └── README.md
 ```
 
 ---
 
-## 🚀 Instalação
+## 🛠️ Instalação
 
-### 1. Pré-requisitos
-- Python 3.10 ou superior
-- pip
+Recomendado:
 
-### 2. Clone o repositório
-```bash
-git clone https://github.com/seuusuario/monitor-milhas.git
-cd monitor-milhas
+```text
+Python 3.12
 ```
 
-### 3. Crie e ative o ambiente virtual
-```bash
-# Windows
-python -m venv .venv
-.venv\Scripts\activate
+Clone:
 
-# Linux/macOS
-python -m venv .venv
-source .venv/bin/activate
+```bash
+git clone https://github.com/Ibjunior01/Monitor_Milhas.git
+cd Monitor_Milhas
 ```
 
-### 4. Instale as dependências
-```bash
-pip install -r requirements.txt
+Crie o ambiente virtual.
+
+### Windows
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
-### 5. Configure as variáveis de ambiente
-```bash
-# Copie o arquivo de exemplo
-copy .env.example .env      # Windows
-cp .env.example .env        # Linux/macOS
+Instale:
 
-# Edite o .env com seus dados reais
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
 ---
 
-## 🤖 Configurar o bot do Telegram
+## 🔑 Variáveis de ambiente
 
-### Criar o bot
-1. Abra o Telegram e busque por **@BotFather**
-2. Envie `/newbot`
-3. Siga as instruções (escolha nome e username)
-4. Copie o **token** gerado (ex: `123456789:ABCdef...`)
-5. Cole em `TELEGRAM_BOT_TOKEN` no seu `.env`
+Crie:
 
-### Obter seu Chat ID
-1. Busque **@userinfobot** ou **@myidbot** no Telegram
-2. Envie qualquer mensagem
-3. O bot responde com seu ID (ex: `987654321`)
-4. Cole em `TELEGRAM_CHAT_ID` no seu `.env`
+```text
+.env
+```
 
-> Alternativamente: envie uma mensagem para o seu bot e acesse:
-> `https://api.telegram.org/bot{SEU_TOKEN}/getUpdates`
+baseado em:
+
+```text
+.env.example
+```
+
+Exemplo:
+
+```env
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+```
+
+Nunca publique valores reais.
 
 ---
 
-## ▶️ Como usar
+## ▶️ Executar o monitor
 
-### Executar varredura manual
 ```bash
 python main.py
 ```
 
-### Abrir o dashboard
+---
+
+## 📊 Executar o dashboard
+
 ```bash
-streamlit run dashboard.py
+python -m streamlit run dashboard.py
 ```
-Acesse: `http://localhost:8501`
 
-### Rodar os testes
+Normalmente:
+
+```text
+http://localhost:8501
+```
+
+---
+
+## 🧪 Ambiente de desenvolvimento
+
+Instale:
+
 ```bash
-pytest tests/ -v
+python -m pip install -r requirements-dev.txt
+```
+
+Valide:
+
+```bash
+python -m ruff check .
+python -m pytest
 ```
 
 ---
 
-## ⏰ Agendar no Windows (Agendador de Tarefas)
+## 📦 Stack
 
-1. Abra **Agendador de Tarefas** (Task Scheduler)
-2. Clique em **Criar Tarefa Básica**
-3. Nome: `Monitor de Milhas`
-4. Gatilho: Diariamente às 08:00 (ou intervalo desejado)
-5. Ação: **Iniciar um programa**
-   - Programa: `C:\caminho\para\.venv\Scripts\python.exe`
-   - Argumentos: `C:\caminho\para\monitor-milhas\main.py`
-   - Iniciar em: `C:\caminho\para\monitor-milhas`
-6. Salve e teste.
-
-Ou crie um arquivo `.bat`:
-```bat
-@echo off
-cd /d C:\caminho\para\monitor-milhas
-.venv\Scripts\python.exe main.py
-```
+- Python 3.12
+- Streamlit
+- Pandas
+- Altair
+- Feedparser
+- Requests
+- Python Dotenv
+- Pytest
+- Ruff
+- GitHub Actions
+- Telegram Bot API
+- JSON / JSONL
 
 ---
 
-## ⚙️ Configuração
+## ⚠️ Limitações
 
-Edite `data/config.json` ou use o painel lateral do dashboard:
+O sistema:
 
-```json
-{
-  "pontos_disponiveis": 32000,
-  "meta_financeira_minima": 900.0,
-  "programas": {
-    "LATAM":  { "bonus_minimo_pct": 20 },
-    "SMILES": { "bonus_minimo_pct": 70 },
-    "AZUL":   { "bonus_minimo_pct": 80 }
-  }
-}
-```
+- depende de fontes públicas;
+- depende da disponibilidade e do conteúdo publicado pelo Google News;
+- não garante que toda promoção existente será encontrada;
+- não executa transferência de pontos;
+- não compra ou vende milhas;
+- não realiza operações financeiras;
+- não substitui validação manual dos termos oficiais de uma promoção;
+- pode exigir revisão manual quando informações não estiverem claras no título ou resumo.
 
-Edite `data/cotacao_milhas.json` para ajustar o valor do milheiro:
-```json
-{
-  "LATAM":  25.0,
-  "SMILES": 16.0,
-  "AZUL":   13.0
-}
-```
-
----
-
-## 🧮 Como funciona o cálculo
-
-```
-Milhas finais = pontos × (1 + bônus% / 100)
-Valor estimado = (milhas / 1.000) × valor_milheiro
-
-Exemplo:
-32.000 pontos × 1,30 (30% bônus) = 41.600 milhas
-41.600 / 1.000 × R$ 25,00 = R$ 1.040,00
-```
-
----
-
-## 📊 Regras de decisão
-
-| Situação | Status | Alerta Telegram |
-|---|---|---|
-| Bônus ≥ meta **E** valor ≥ meta financeira | ✅ Aprovada | Sim |
-| Bônus ≥ meta, valor abaixo | ⚠️ Abaixo da meta | Não |
-| Bônus abaixo, valor ok | ⏳ Aguardando | Não |
-| Ambos abaixo | ❌ Ignorada | Não |
+O projeto tem finalidade de monitoramento e apoio à análise.
 
 ---
 
 ## 🗺️ Roadmap
 
-### Fase 1 — MVP local (atual)
-- [x] Monitoramento via Google News RSS
-- [x] Extração de programa e % de bônus
-- [x] Cálculo financeiro
-- [x] Alerta Telegram
-- [x] Dashboard Streamlit
-- [x] Persistência em JSON/JSONL
-- [x] Deduplicação de alertas
+Possíveis evoluções futuras:
 
-### Fase 2 — MVP online
-- [ ] Publicar dashboard no Streamlit Community Cloud
-- [ ] Execução agendada via GitHub Actions
-- [ ] Migrar storage para Supabase (free tier)
-- [ ] Cadastro simples de 2–3 usuários beta
+- novas fontes públicas;
+- filtros adicionais;
+- histórico analítico;
+- métricas de efetividade das fontes;
+- deploy autenticado do dashboard;
+- armazenamento externo caso o volume de dados justifique;
+- novas regras de oportunidade.
 
-### Fase 3 — Micro-SaaS
-- [ ] Autenticação (Supabase Auth / Clerk)
-- [ ] Planos pagos (Stripe)
-- [ ] Painel do usuário com preferências individuais
-- [ ] Múltiplos canais de notificação (WhatsApp, e-mail)
-- [ ] Painel administrativo
-
-### Fase 4 — Produto escalável
-- [ ] Backend FastAPI
-- [ ] PostgreSQL gerenciado
-- [ ] Workers com Celery/ARQ
-- [ ] Observabilidade (Sentry, logs estruturados)
-- [ ] Deploy profissional (Railway, Render, VPS)
-- [ ] API própria com documentação
+Essas evoluções não são requisitos para o estado atual do projeto.
 
 ---
 
-## 🔒 Segurança
+## 📌 Status
 
-- Tokens nunca no código — apenas em variáveis de ambiente
-- `.env` listado no `.gitignore`
-- Nenhum acesso a login ou senhas de programas de pontos
-- Coleta apenas de feeds RSS e páginas públicas
+```text
+NÚCLEO OPERACIONAL VALIDADO
+```
 
----
+Principais validações concluídas:
 
-## 📄 Licença
+- fluxo de dados;
+- atualização do dashboard;
+- persistência;
+- sincronização;
+- idempotência;
+- deduplicação;
+- coleta recente;
+- filtro Esfera;
+- Telegram;
+- testes;
+- Ruff;
+- CI;
+- GitHub Actions;
+- responsividade;
+- tema claro/escuro.
 
-MIT — use, modifique e distribua à vontade.
+A documentação e a preparação final para portfólio completam o fechamento do projeto.
