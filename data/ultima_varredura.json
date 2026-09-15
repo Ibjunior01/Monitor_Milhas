@@ -1,9 +1,9 @@
 {
-  "data_execucao": "2026-09-14T23:42:19+00:00",
+  "data_execucao": "2026-09-15T15:18:09+00:00",
   "status": "concluida",
   "resumo": {
-    "total_coletados": 26,
-    "novos": 4,
+    "total_coletados": 27,
+    "novos": 6,
     "relevantes": 0,
     "aprovadas": 0,
     "alertas_enviados": 0,
