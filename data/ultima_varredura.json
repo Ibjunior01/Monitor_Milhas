@@ -1,12 +1,12 @@
 {
-  "data_execucao": "2026-09-22T23:30:17+00:00",
+  "data_execucao": "2026-09-23T23:26:25+00:00",
   "status": "concluida",
   "resumo": {
-    "total_coletados": 36,
-    "novos": 4,
-    "relevantes": 0,
-    "aprovadas": 0,
+    "total_coletados": 45,
+    "novos": 15,
+    "relevantes": 8,
+    "aprovadas": 4,
     "alertas_enviados": 0,
-    "ignoradas": 0
+    "ignoradas": 4
   }
 }
